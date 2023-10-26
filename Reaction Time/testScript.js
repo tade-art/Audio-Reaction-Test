@@ -1,8 +1,7 @@
 /**
  * Things to fix
- * - Sound isn't played randomly, needs to be fixed
- * - The reaction time displayed is incorrect
  * - StopExperiment isn't working as intended (needs to show results and stop sound playing)
+ * - Sound plays when space is pressed, on first press sound shouldn't play (maybe add a flag?)
  * - Probably something else i missed out tbh
  * vry rough version of the code, just needs a few tweaks and then replicated for the randomised volume and freq version and then should be set for testing
  */
@@ -29,18 +28,23 @@ const startExperiment = function () {
   document.querySelector("#count").textContent = "";
   document.querySelector("#mean").textContent = "";
   document.querySelector("#sd").textContent = "";
-  document.querySelector("#time").textContent =
-    "Press 'SPACE' to start the audio test! Press 'a' for results!";
+  document.querySelector("#time").textContent ="Press 'SPACE' to start the audio test! Press 'a' for results!";
     playAudioStimulus();    //Plays the audio queue
 };
 
-const randomDelay = Math.floor(Math.random() * 4 + 2); // Plays a sound between 2 - 5s (needs to be used somewhere...)
 
 //Function which loads and plays the audio file
 const playAudioStimulus = function () {
   const audio = new Audio("sound.mp3");
   audio.play();
-  experimentState.audioTimeoutId = setTimeout(() => stopTest(), 1500); //Needs adjusting (Incorrect gaps)
+  const randomDelay = Math.floor(Math.random() * 4 + 2); // Plays a sound between 2 - 5s
+  experimentState.audioTimeoutId = setTimeout(showStimulus, randomDelay * 1000);
+};
+
+const showStimulus = function () {
+  console.info("INFO: Stimulus shown.");
+  experimentState.testActive = true;
+  experimentState.lastAudioTimePlayed = Date.now();
 };
 
 const stopTest = function () {
