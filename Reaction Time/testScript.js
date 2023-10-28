@@ -1,81 +1,105 @@
 /**
  * Things to fix
- * - StopExperiment isn't working as intended (needs to show results and stop sound playing)
- * - Sound plays when space is pressed, on first press sound shouldn't play (maybe add a flag?)
+ * - If player holds down spacebar, then time is inaccurate
  * - Probably something else i missed out tbh
- * vry rough version of the code, just needs a few tweaks and then replicated for the randomised volume and freq version and then should be set for testing
+ * code is almost ready to be launched for testing, just double check it yourselves :D
  */
-
-
-
-console.log("Hello 🌎");
-
-let arr=[];
-
-//A collection of objects which is used to track the status of the experiment
 const experimentState = {
-  experimentActive: false,
-  testActive: false,
-  lastAudioTimePlayed: -1,
   times: [],
-  audioTimeoutId: -1,
+  maxTrials: 3,
+  randomDelay: -1,
+  started: false,
+  ended: false,
+  stimulusWait: false,
+  stimulusShown: false,
+  stimulusStartedAt: -1,
+  btnDisabled: false,
 };
 
-//This function is called when SPACE is pressed or reset
-const startExperiment = function () {
-  experimentState.experimentActive = true;
-  document.querySelector("#time").textContent = "";
-  document.querySelector("#count").textContent = "";
-  document.querySelector("#mean").textContent = "";
-  document.querySelector("#sd").textContent = "";
-  document.querySelector("#time").textContent ="Press 'SPACE' to start the audio test! Press 'a' for results!";
-    playAudioStimulus();    //Plays the audio queue
+const btn = document.querySelector("#btn");
+const audio = new Audio("sound.mp3");
+
+const startTest = function () {
+  if (experimentState.times.length < experimentState.maxTrials) {
+    experimentState.stimulusShown = false; 
+    scheduleSound();
+  } 
+  else {
+    experimentState.stimulusShown = false;
+    endExperiment();
+  }
 };
 
+const endExperiment = function () {
+  experimentState.ended = true;
+  experimentState.btnDisabled = false;
+  btn.classList.toggle("button-enabled");
+  btn.classList.toggle("button-disabled");
+};
 
-//Function which loads and plays the audio file
-const playAudioStimulus = function () {
-  const audio = new Audio("sound.mp3");
+const scheduleSound = function () {
+  experimentState.stimulusWait = true;
+  const randomDelay = Math.floor(Math.random() * 4 + 2);
+  experimentState.randomDelay = window.setTimeout(playSound, randomDelay * 1000);
+};
+
+const playSound = function () {
+  experimentState.stimulusStartedAt = Date.now();
   audio.play();
-  const randomDelay = Math.floor(Math.random() * 4 + 2); // Plays a sound between 2 - 5s
-  experimentState.audioTimeoutId = setTimeout(showStimulus, randomDelay * 1000);
+  experimentState.stimulusWait = false;
+  experimentState.stimulusShown = true;
 };
 
-const showStimulus = function () {
-  console.info("INFO: Stimulus shown.");
-  experimentState.testActive = true;
-  experimentState.lastAudioTimePlayed = Date.now();
-};
-
-const stopTest = function () {
-  let currTime = Date.now();
-  let deltaTime = currTime - experimentState.lastAudioTimePlayed;
+const logReaction = function () {
+  let userReactedAt = Date.now();
+  let deltaTime = userReactedAt - experimentState.stimulusStartedAt;
   experimentState.times.push(deltaTime);
-  document.querySelector("#time").textContent = "Reaction Time: " + deltaTime + " ms";
-  experimentState.testActive = false;
-  playAudioStimulus();
+  document.querySelector("#time").textContent = deltaTime + " ms";
 };
 
-const stopExperiment = function () {
-  clearTimeout(experimentState.timeoutId); //stop the timer
-  experimentState.testActive = false;
-  let stats = computeStatistics(experimentState.times);
-  document.querySelector("#count").textContent = "Count: " + stats.cnt;
-  document.querySelector("#mean").textContent = "Mean: " + stats.mean.toFixed(2) + "ms";
-  document.querySelector("#sd").textContent ="SD: " + stats.sd.toFixed(2) + "ms";
-  document.querySelector("#instruction").innerHTML = "Press SPACE to start!";
-  arr = experimentState.times;
-  experimentState.times = [];
-  experimentState.experimentActive = false;
+const userReaction = function () {
+  if (!experimentState.started) return;
+  if (experimentState.stimulusWait) return;
+  if (experimentState.stimulusShown) {
+    logReaction();
+    startTest();
+  }
 };
 
-//Function which is full of formulas needed to calculate everything (used from the template)
+const startExperiment = function () {
+  document.querySelector("#instructions").textContent = "";
+  experimentState.started = true;
+  window.addEventListener("keypress", onKey);
+  startTest();
+};
+
+const btnAction = function () {
+  if (experimentState.btnDisabled) return;
+  if (!experimentState.ended) {
+    experimentState.btnDisabled = true;
+    btn.classList.toggle("button-enabled");
+    btn.classList.toggle("button-disabled");
+  }
+  if (!experimentState.started) {
+    startExperiment();
+  } else {
+    if (experimentState.ended) {
+      const stats = computeStatistics(experimentState.times);
+      document.querySelector("#time").textContent = [""];
+      document.querySelector("#count").textContent = ["Count:"+stats.cnt];
+      document.querySelector("#mean").textContent = ["Mean:" + stats.mean.toFixed(2)+"ms"];
+      document.querySelector("#sd").textContent = ["SD:" + stats.sd.toFixed(2) + "ms"];
+    } 
+  }
+};
+
 const computeStatistics = function (timeArr) {
+  //Mean = sum(x)/cnt(x)
   const sums = timeArr.reduce((acc, num) => acc + num, 0);
   const meanDeltaTime = sums / timeArr.length;
-  const squaredDiffs = timeArr.reduce((acc, num) => (num - meanDeltaTime) ** 2 + acc, 0);
+  //standard deviation is sqrt(sum(x-mean)^2/cnt(x))
+  const squaredDiffs = timeArr.reduce( (acc, num) => (num - meanDeltaTime) ** 2 + acc, 0);
   const standardDeviationTime = Math.sqrt(squaredDiffs / timeArr.length);
-
   return {
     sd: standardDeviationTime,
     mean: meanDeltaTime,
@@ -83,32 +107,11 @@ const computeStatistics = function (timeArr) {
   };
 };
 
-//Function which is ran every single time a key is pressed down (keys that are coded anyways)
 const onKey = function (evt) {
-  if (evt == null) {
-    evt = window.event;
-  }
   switch (evt.which || evt.charCode || evt.keyCode) {
-    case 32: // ASCII for SPACE bar
-      if (!experimentState.experimentActive) {startExperiment();} 
-      else { if (experimentState.testActive) {stopTest();} }
+    case 32: //ASCII FOR SPACE
+      userReaction();
       break;
-    
-      case 65: // ASCII for a (IN LOWERCASE)
-      if (experimentState.experimentActive) {stopExperiment();}
-      break;
-
-      //If you need anything more, extend it here
-    
-    default:
-      console.warn(
-        "TBD?: Key down, unhandled",
-        evt.which,
-        evt.charCode,
-        evt.keyCode
-      );
   }
 };
-
-//Adding the events to the window so that a function is ran upon key press
-window.addEventListener("keydown", onKey);
+btn.addEventListener("click", btnAction);
