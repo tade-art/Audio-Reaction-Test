@@ -6,7 +6,7 @@
  */
 const experimentState = {
     times: [],
-    maxTrials: 2,
+    maxTrials: 10,
     randomDelay: -1,
     started: false,
     ended: false,
